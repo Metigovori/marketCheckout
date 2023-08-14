@@ -1,0 +1,82 @@
+[
+  {
+    "id": 1,
+    "name": "Water",
+    "price": 0.25,
+    "vatRate": 8,
+    "discount": 0,
+    "quantity": 240
+  },
+  {
+    "id": 2,
+    "name": "Chips",
+    "price": 2.40,
+    "vatRate": 8,
+    "discount": 0,
+    "quantity": 38
+  },
+  {
+    "id": 3,
+    "name": "TV",
+    "price": 760,
+    "vatRate": 22,
+    "discount": 0,
+    "quantity": 1
+  },
+  {
+    "id": 4,
+    "name": "Coca Cola",
+    "price": 0.50,
+    "vatRate": 18,
+    "discount": 0.10,
+    "quantity": 77
+  },
+  {
+    "id": 5,
+    "name": "Chocolate Bars",
+    "price": 1.25,
+    "vatRate": 22,
+    "discount": 0.20,
+    "quantity": 38
+  },
+  {
+    "id": 6,
+    "name": "Hand Soap",
+    "price": 3.78,
+    "vatRate": 8,
+    "discount": 0,
+    "quantity": 92
+  },
+  {
+    "id": 7,
+    "name": "Fish Meat (per kg)",
+    "price": 8.30,
+    "vatRate": 18,
+    "discount": 0,
+    "quantity": 49
+  },
+  {
+    "id": 8,
+    "name": "Hummus",
+    "price": 2.66,
+    "vatRate": 18,
+    "discount": 0.10,
+    "quantity": 16
+  },
+  {
+    "id": 9,
+    "name": "Bananas (per kg)",
+    "price": 1.25,
+    "vatRate": 22,
+    "discount": 0,
+    "quantity": 8
+  },
+  {
+    "id": 10,
+    "name": "Wine",
+    "price": 9.78,
+    "vatRate": 22,
+    "discount": 0,
+    "quantity": 22
+  }
+]
