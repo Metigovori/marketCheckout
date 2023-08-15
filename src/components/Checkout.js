@@ -9,6 +9,9 @@ const Checkout = () => {
   const [cartItems, setCartItems] = useState([]);
   const [invoices, setInvoices] = useState([]); 
 
+  const MAX_PRODUCT_QUANTITY = 50;
+  
+
   const handleDeleteInvoice = (invoiceId) => {
     setInvoices((prevInvoices) => prevInvoices.filter((invoice) => invoice.id !== invoiceId));
   };
@@ -40,119 +43,181 @@ const Checkout = () => {
   };
 
  
-  const handleCreateInvoice = () => {
-    const MAX_INVOICE_TOTAL = 500;
-    const MAX_PRODUCT_QUANTITY = 50;
-    const MAX_PRODUCT_PRICE = 500;
+
+const createInvoice = () => {
+  return {
+      products: [],
+      subtotal: 0,
+      vat: 0,
+      total: 0,
+  };
+};
+
+const splitItemsWithinInvoice = (invoice, maxInvoiceTotal) => {
     const newInvoices = [];
-    let currentInvoice = null;
-  
-    for (const product of cartItems) {
+    let tempInvoice = createInvoice();
+
+    for (const product of invoice.products) {
+        if (tempInvoice.total + product.total > maxInvoiceTotal) {
+            newInvoices.push(tempInvoice);
+            tempInvoice = createInvoice();
+        }
+
+        tempInvoice.products.push(product);
+        tempInvoice.subtotal += product.total;
+        tempInvoice.vat += (product.price * product.vatRate) / 100 * product.quantity;
+        tempInvoice.total += product.total;
+    }
+
+    if (tempInvoice.products.length > 0) {
+        newInvoices.push(tempInvoice);
+    }
+
+    return newInvoices;
+};
+
+
+ 
+const handleCreateInvoice = () => {
+  const MAX_INVOICE_TOTAL = 500;
+  const MAX_PRODUCT_QUANTITY = 50;
+  const MAX_PRODUCT_PRICE = 500;
+  const newInvoices = [];
+  let currentInvoice = null;
+  let splitInvoice = null;
+  const exceededProducts = [];
+
+  for (const product of cartItems) {
       const productTotal = calculateProductTotal(product);
       let remainingQuantity = product.quantity;
-  
+
+      if (product.price > MAX_PRODUCT_PRICE) {
+          console.log(`Produkti "${product.name}" e ka kalu maksimumin e qmimit .`);
+          exceededProducts.push(product);
+          continue;
+      }
+
       while (remainingQuantity > 0) {
         const quantityToAdd = Math.min(MAX_PRODUCT_QUANTITY, remainingQuantity);
         let adjustedQuantity = quantityToAdd;
-        if (product.price > MAX_PRODUCT_PRICE || 
-          (currentInvoice && currentInvoice.total + productTotal > MAX_INVOICE_TOTAL)) {
-          if (currentInvoice && currentInvoice.products.length > 0) {
-            newInvoices.push(currentInvoice);
-          }
-          currentInvoice = {
-            products: [],
-            subtotal: 0,
-            vat: 0,
-            total: 0,
-          };
+
+        if (!currentInvoice || currentInvoice.total + productTotal > MAX_INVOICE_TOTAL) {
+            if (currentInvoice) {
+                if (splitInvoice) {
+                    newInvoices.push(splitInvoice);
+                    splitInvoice = null;
+                }
+                newInvoices.push(currentInvoice);
+            }
+            currentInvoice = createInvoice();
         }
-  
-        if (!currentInvoice) {
-          currentInvoice = {
-            products: [],
-            subtotal: 0,
-            vat: 0,
-            total: 0,
-          };
-        }
-  
+
         if (!currentInvoice.products.some(p => p.description === product.name)) {
-          currentInvoice.products.push({
-            description: product.name,
-            quantity: 0,
-            price: product.price,
-            discount: product.discount,
-            vatRate: product.vatRate,
-            total: 0,
-          });
-        }
-  
-        const existingProduct = currentInvoice.products.find(p => p.description === product.name);
-  
-        if (!existingProduct) {
-          continue;
-        }
-  
-        if (product.price > MAX_PRODUCT_PRICE) {
-          console.log(`Produkti "${product.name}" e ka kalu qmimin maksimal.`);
-          
-          const adjustedTotal = productTotal * remainingQuantity; 
-          const adjustedVat = (product.price * product.vatRate) / 100 * remainingQuantity;
-          
-          existingProduct.total += adjustedTotal;
-          existingProduct.quantity += remainingQuantity; 
-          currentInvoice.subtotal += adjustedTotal;
-          currentInvoice.vat += adjustedVat;
-          currentInvoice.total += adjustedTotal + adjustedVat;
-          
-          remainingQuantity = 0;
-        } else if (existingProduct.quantity + adjustedQuantity > MAX_PRODUCT_QUANTITY) {
-          const newInvoice = {
-            products: [
-              {
+            currentInvoice.products.push({
                 description: product.name,
-                quantity: MAX_PRODUCT_QUANTITY - existingProduct.quantity,
+                quantity: 0,
                 price: product.price,
                 discount: product.discount,
                 vatRate: product.vatRate,
-                total: productTotal * (MAX_PRODUCT_QUANTITY - existingProduct.quantity),
-              },
-            ],
-            subtotal: productTotal * (MAX_PRODUCT_QUANTITY - existingProduct.quantity),
-            vat: (product.price * product.vatRate) / 100 * (MAX_PRODUCT_QUANTITY - existingProduct.quantity),
-            total: productTotal * (MAX_PRODUCT_QUANTITY - existingProduct.quantity),
-          };
-  
-          newInvoices.push(currentInvoice);
-          currentInvoice = newInvoice;
-  
-          remainingQuantity -= MAX_PRODUCT_QUANTITY - existingProduct.quantity;
-        } else {
-          if (currentInvoice.total + productTotal * adjustedQuantity > MAX_INVOICE_TOTAL) {
-            const remainingInvoiceTotal = MAX_INVOICE_TOTAL - currentInvoice.total;
-            const maxQuantityToAdd = Math.floor(remainingInvoiceTotal / productTotal);
-            adjustedQuantity = Math.min(adjustedQuantity, maxQuantityToAdd);
+                total: 0,
+            });
+        }
+
+        const existingProduct = currentInvoice.products.find(p => p.description === product.name);
+
+        if (!existingProduct) {
+            continue;
+        }
+
+        if (existingProduct.quantity + adjustedQuantity > MAX_PRODUCT_QUANTITY) {
+            if (!splitInvoice) {
+                splitInvoice = createInvoice();
+            }
+
+            const quantityToSplit = existingProduct.quantity + adjustedQuantity - MAX_PRODUCT_QUANTITY;
+
+            existingProduct.quantity -= quantityToSplit;
+            existingProduct.total -= productTotal * quantityToSplit;
+            currentInvoice.subtotal -= productTotal * quantityToSplit;
+            currentInvoice.vat -= (product.price * product.vatRate) / 100 * quantityToSplit;
+            currentInvoice.total -= productTotal * quantityToSplit;
+
+            const splitProductTotal = calculateProductTotal(product) * quantityToSplit;
+            const splitProductVAT = (product.price * product.vatRate) / 100 * quantityToSplit;
+
+            splitInvoice.products.push({
+                description: product.name,
+                quantity: adjustedQuantity,
+                price: product.price,
+                discount: product.discount,
+                vatRate: product.vatRate,
+                total: splitProductTotal,
+            });
+            splitInvoice.subtotal += splitProductTotal;
+            splitInvoice.vat += splitProductVAT;
+            splitInvoice.total += splitProductTotal + splitProductVAT;
+
+            remainingQuantity -= quantityToSplit - adjustedQuantity;
+            existingProduct.quantity += adjustedQuantity;
+            existingProduct.total += productTotal * adjustedQuantity;
+            currentInvoice.subtotal += productTotal * adjustedQuantity;
+            currentInvoice.vat += (product.price * product.vatRate) / 100 * adjustedQuantity;
+            currentInvoice.total += productTotal * adjustedQuantity;
+
+            remainingQuantity -= adjustedQuantity;
+
+            if (splitInvoice.total + productTotal * adjustedQuantity > MAX_INVOICE_TOTAL) {
+                newInvoices.push(splitInvoice);
+                splitInvoice = null;
+            }
+          } else {
+            if (currentInvoice.total + productTotal * adjustedQuantity > MAX_INVOICE_TOTAL) {
+              const remainingInvoiceTotal = MAX_INVOICE_TOTAL - currentInvoice.total;
+              const maxQuantityToAdd = Math.floor(remainingInvoiceTotal / productTotal);
+              adjustedQuantity = Math.min(adjustedQuantity, maxQuantityToAdd);
           }
-  
+
           existingProduct.quantity += adjustedQuantity;
           existingProduct.total += productTotal * adjustedQuantity;
           currentInvoice.subtotal += productTotal * adjustedQuantity;
           currentInvoice.vat += (product.price * product.vatRate) / 100 * adjustedQuantity;
           currentInvoice.total += productTotal * adjustedQuantity;
-  
+
           remainingQuantity -= adjustedQuantity;
-        }
+          }
       }
-    }
-  
-    if (currentInvoice && currentInvoice.products.length > 0) {
+  }
+
+  if (currentInvoice && currentInvoice.products.length > 0) {
       newInvoices.push(currentInvoice);
-    }
-  
-    setInvoices(newInvoices);
-    setCartItems([]);
-  };
-  
+  }
+
+  if (splitInvoice && splitInvoice.products.length > 0) {
+    const newSplitInvoices = splitItemsWithinInvoice(splitInvoice, MAX_INVOICE_TOTAL);
+    newInvoices.push(...newSplitInvoices);
+}
+
+
+  if (exceededProducts.length > 0) {
+    const exceededProductsInvoice = {
+        products: exceededProducts.map(product => ({
+            description: product.name,
+            quantity: product.quantity,
+            price: product.price,
+            discount: product.discount,
+            vatRate: product.vatRate,
+            total: calculateProductTotal(product),
+        })),
+        subtotal: exceededProducts.reduce((acc, product) => acc + calculateProductTotal(product), 0),
+        vat: exceededProducts.reduce((acc, product) => acc + (product.price * product.vatRate) / 100 * product.quantity, 0),
+        total: exceededProducts.reduce((acc, product) => acc + calculateProductTotal(product) + (product.price * product.vatRate) / 100 * product.quantity, 0),
+    };
+    newInvoices.push(exceededProductsInvoice);
+}
+
+  setInvoices(newInvoices);
+  setCartItems([]);
+};
 
 
   
